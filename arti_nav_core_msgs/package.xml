@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>arti_nav_core_msgs</name>
+  <version>0.1.0</version>
+  <description>Messages used in the navigation interface</description>
+  <license>All rights reserved</license>
+
+  <maintainer email="c.muehlbacher@arti-robots.com">Clemens Mühlbacher</maintainer>
+
+  <author email="c.muehlbacher@arti-robots.com">Clemens Mühlbacher</author>
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>message_generation</build_depend>
+
+  <build_export_depend>geometry_msgs</build_export_depend>
+
+  <exec_depend>actionlib_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>message_runtime</exec_depend>
+
+
+  <!-- The export tag contains other, unspecified, tags -->
+  <export>
+    <!-- Other tools can request additional information be placed here -->
+
+  </export>
+</package>

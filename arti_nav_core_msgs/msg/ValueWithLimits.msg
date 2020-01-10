@@ -1,0 +1,4 @@
+float64 value
+bool has_limits
+float64 upper_limit
+float64 lower_limit

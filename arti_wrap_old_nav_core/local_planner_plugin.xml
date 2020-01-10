@@ -1,0 +1,9 @@
+<!--suppress XmlUnboundNsPrefix, XmlUnboundNsPrefix -->
+<library path="lib/libbase_local_planner_wrapper">
+  <class name="arti_nav_core/BaseLocalPlannerWrapper" type="arti_wrap_old_nav_core::BaseLocalPlannerWrapper"
+         base_class_type="arti_nav_core::BaseLocalPlanner">
+    <description>
+      Wrapper to use ros local planners in the new nav core
+    </description>
+  </class>
+</library>

@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<!--suppress XmlUnboundNsPrefix, XmlUnboundNsPrefix -->
+<package format="2">
+  <name>arti_wrap_old_nav_core</name>
+  <version>0.1.0</version>
+  <description>Wrapper code to use old nav core interface from ros with new navigation interfaces</description>
+  <license>All rights reserved</license>
+
+  <maintainer email="c.muehlbacher@arti-robots.com">Clemens Mühlbacher</maintainer>
+
+  <author email="c.muehlbacher@arti-robots.com">Clemens Mühlbacher</author>
+  
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>arti_nav_core</build_depend>
+  <build_depend>costmap_2d</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>nav_core</build_depend>
+  <build_depend>nav_msgs</build_depend>
+  <build_depend>pluginlib</build_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>tf</build_depend>
+  <build_depend>roslint</build_depend>
+
+  <build_export_depend>arti_nav_core</build_export_depend>
+  <build_export_depend>costmap_2d</build_export_depend>
+  <build_export_depend>geometry_msgs</build_export_depend>
+  <build_export_depend>nav_core</build_export_depend>
+  <build_export_depend>nav_msgs</build_export_depend>
+  <build_export_depend>pluginlib</build_export_depend>
+  <build_export_depend>roscpp</build_export_depend>
+  <build_export_depend>std_msgs</build_export_depend>
+  <build_export_depend>tf</build_export_depend>
+  <build_export_depend>roslint</build_export_depend>
+
+  <exec_depend>arti_nav_core</exec_depend>
+  <exec_depend>costmap_2d</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_core</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>pluginlib</exec_depend>
+  <exec_depend>roscpp</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>tf</exec_depend>
+  <exec_depend>roslint</exec_depend>
+
+
+  <!-- The export tag contains other, unspecified, tags -->
+  <export>
+    <!-- Other tools can request additional information be placed here -->
+    <arti_nav_core plugin="${prefix}/local_planner_plugin.xml" />
+    <arti_nav_core plugin="${prefix}/path_follower_plugin.xml" />
+    <arti_nav_core plugin="${prefix}/global_planner_plugin.xml" />
+
+  </export>
+</package>

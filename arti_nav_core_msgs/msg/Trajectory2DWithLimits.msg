@@ -1,0 +1,2 @@
+std_msgs/Header header
+arti_nav_core_msgs/Movement2DWithLimits[] movements

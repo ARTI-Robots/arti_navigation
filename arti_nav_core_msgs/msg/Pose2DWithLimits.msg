@@ -1,0 +1,2 @@
+arti_nav_core_msgs/Point2DWithLimits point
+arti_nav_core_msgs/ValueWithLimits theta

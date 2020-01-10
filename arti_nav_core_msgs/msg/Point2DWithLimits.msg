@@ -1,0 +1,2 @@
+arti_nav_core_msgs/ValueWithLimits x
+arti_nav_core_msgs/ValueWithLimits y
