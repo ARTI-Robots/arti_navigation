@@ -12,13 +12,16 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 #ifdef __GNUC__
 #pragma GCC diagnostic push
-
 #pragma GCC diagnostic ignored "-Wunused-parameter"
+#endif
 
-#include <arti_nav_core_msgs/Trajectory2DWithLimits.h>
 #include <ackermann_msgs/AckermannDrive.h>
+#include <arti_nav_core/transformer.h>
+#include <arti_nav_core_msgs/Trajectory2DWithLimits.h>
 #include <costmap_2d/costmap_2d_ros.h>
+#include <string>
 
+#ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif
 
@@ -28,8 +31,15 @@ namespace arti_nav_core
 class BasePathFollowerAckermann
 {
 public:
-
   virtual ~BasePathFollowerAckermann() = default;
+
+  /**
+   * @brief  Constructs the path follower
+   * @param name The name to give this instance of the path follower
+   * @param transformer A pointer to a transformer
+   * @param costmap_ros The cost map to use for assigning costs to commands
+   */
+  virtual void initialize(std::string name, Transformer* transformer, costmap_2d::Costmap2DROS* costmap_ros) = 0;
 
   /*!
    * set the trajectory which is used as bases to calculate the next best command.
@@ -59,14 +69,6 @@ public:
    * @return if a command was found or which fault occurred
    */
   virtual BasePathFollowerAckermannErrorEnum computeVelocityCommands(ackermann_msgs::AckermannDrive& next_command) = 0;
-
-  /**
-   * @brief  Constructs the path follower
-   * @param name The name to give this instance of the path follower
-   * @param tf A pointer to a transform listener
-   * @param costmap_ros The cost map to use for assigning costs to commands
-   */
-  virtual void initialize(std::string name, tf::TransformListener* tf, costmap_2d::Costmap2DROS* costmap_ros) = 0;
 
   /**
    * @brief  Check if the goal pose has been achieved

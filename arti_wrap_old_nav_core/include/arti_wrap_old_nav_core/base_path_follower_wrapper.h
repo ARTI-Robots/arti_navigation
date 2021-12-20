@@ -10,65 +10,59 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #ifndef ARTI_WRAP_OLD_NAV_CORE_BASE_PATH_FOLLOWER_WRAPPER_H
 #define ARTI_WRAP_OLD_NAV_CORE_BASE_PATH_FOLLOWER_WRAPPER_H
 
-
 #include <arti_nav_core/base_path_follower.h>
+#include <arti_nav_core_msgs/ValueWithLimits.h>
+#include <mutex>
+#include <nav_core/base_local_planner.h>
+#include <nav_msgs/Odometry.h>
+#include <pluginlib/class_loader.h>
+#include <ros/node_handle.h>
 #include <string>
 #include <vector>
 
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-
-#include <pluginlib/class_loader.h>
-#include <costmap_2d/costmap_2d_ros.h>
-#include <tf/transform_listener.h>
-#include <nav_core/base_local_planner.h>
-#include <nav_msgs/Odometry.h>
-#include <ros/node_handle.h>
-
-#pragma GCC diagnostic pop
-#endif
-
-#include <mutex>
-
 namespace arti_wrap_old_nav_core
 {
+
 class BasePathFollowerWrapper : public arti_nav_core::BasePathFollower
 {
 public:
   BasePathFollowerWrapper();
+
+  void initialize(
+    std::string name, arti_nav_core::Transformer* transformer, costmap_2d::Costmap2DROS* costmap_ros) override;
 
   bool setTrajectory(const arti_nav_core_msgs::Trajectory2DWithLimits& trajectory) override;
 
   arti_nav_core::BasePathFollower::BasePathFollowerErrorEnum computeVelocityCommands(
     geometry_msgs::Twist& next_command) override;
 
-  void initialize(std::string name, tf::TransformListener* tf, costmap_2d::Costmap2DROS* costmap_ros) override;
-
   bool isGoalReached() override;
 
-  void odomCB(const nav_msgs::Odometry::ConstPtr &msg);
+  void odomCB(const nav_msgs::Odometry::ConstPtr& msg);
 
 private:
-  void calcualteCurrentIndex();
+  static const char LOGGER_NAME[];
 
-  bool withinTolerance(double current_value, double goal_value, double uper_bound, double lower_bound,
-                       bool is_angular = false);
+  void calculateCurrentIndex();
 
+  static bool withinTolerance(double current_value, const arti_nav_core_msgs::ValueWithLimits& goal_value);
+  void enforceLimit(
+    geometry_msgs::Twist& next_command, double current_value, const arti_nav_core_msgs::ValueWithLimits& goal_value,
+    const char* name);
   pluginlib::ClassLoader<nav_core::BaseLocalPlanner> plugin_loader_;
   boost::shared_ptr<nav_core::BaseLocalPlanner> planner_;
 
-  ros::NodeHandle nh_;
+  ros::NodeHandle private_nh_;
 
   ros::Subscriber odom_sub_;
 
   std::mutex odometry_mutex_;
-  geometry_msgs::Pose current_position_;
+  geometry_msgs::Pose current_pose_;
 
-  size_t current_index_;
+  size_t current_index_{0};
   arti_nav_core_msgs::Trajectory2DWithLimits current_trajectory_;
 };
+
 }  // namespace arti_wrap_old_nav_core
 
 #endif  // ARTI_WRAP_OLD_NAV_CORE_BASE_PATH_FOLLOWER_WRAPPER_H

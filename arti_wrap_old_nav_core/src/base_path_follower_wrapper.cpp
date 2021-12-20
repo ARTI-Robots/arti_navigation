@@ -8,69 +8,70 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
  */
 
 #include <arti_wrap_old_nav_core/base_path_follower_wrapper.h>
+#include <arti_nav_core_utils/conversions.h>
+#include <angles/angles.h>
+#include <arti_wrap_old_nav_core/utils.h>
+#include <nav_msgs/Path.h>
 #include <pluginlib/class_list_macros.h>
 #include <string>
 #include <vector>
-#include <angles/angles.h>
+#include <tf/transform_datatypes.h>
 
 namespace arti_wrap_old_nav_core
 {
-BasePathFollowerWrapper::BasePathFollowerWrapper() : plugin_loader_("nav_core", "nav_core::BaseLocalPlanner")
-{ }
 
-void BasePathFollowerWrapper::initialize(std::string name, tf::TransformListener* tf,
-                                         costmap_2d::Costmap2DROS* costmap_ros)
+const char BasePathFollowerWrapper::LOGGER_NAME[] = "base_path_follower_wrapper";
+
+BasePathFollowerWrapper::BasePathFollowerWrapper()
+  : plugin_loader_("nav_core", "nav_core::BaseLocalPlanner")
 {
-  ros::NodeHandle private_nh("~/" + name);
-  std::string ros_path_follower_name;
-  if (!private_nh.getParam("path_follower_name", ros_path_follower_name))
-    throw std::runtime_error("no local planner specified to wrap");
+}
+
+void BasePathFollowerWrapper::initialize(
+  std::string name, arti_nav_core::Transformer* transformer, costmap_2d::Costmap2DROS* costmap_ros)
+{
+  private_nh_ = ros::NodeHandle("~/" + name);
+  const std::string wrapped_type = private_nh_.param<std::string>("wrapped_type", {});
+  if (wrapped_type.empty())
+  {
+    throw std::runtime_error("no path follower (local planner) specified to wrap");
+  }
 
   try
   {
-    planner_ = plugin_loader_.createInstance(ros_path_follower_name);
+    planner_ = plugin_loader_.createInstance(wrapped_type);
   }
   catch (const pluginlib::PluginlibException& ex)
   {
-    ROS_FATAL_STREAM("Failed to load the " << ros_path_follower_name << " with fault " << ex.what());
-    throw ex;
+    ROS_FATAL_STREAM_NAMED(LOGGER_NAME, "Failed to load the '" << wrapped_type << "' plugin: " << ex.what());
+    throw;
   }
 
-  std::string plugin_name = plugin_loader_.getName(ros_path_follower_name);
-  planner_->initialize(plugin_name, tf, costmap_ros);
+  planner_->initialize(name, transformer, costmap_ros);
 
-  odom_sub_ = nh_.subscribe<nav_msgs::Odometry>("/odom", 1, boost::bind(&BasePathFollowerWrapper::odomCB, this, _1));
-
+  odom_sub_ = private_nh_.subscribe("/odom", 1, &BasePathFollowerWrapper::odomCB, this);
 }
 
 bool BasePathFollowerWrapper::setTrajectory(const arti_nav_core_msgs::Trajectory2DWithLimits& trajectory)
 {
   if (trajectory.movements.empty())
   {
-    ROS_ERROR("trajectory is empty");
+    ROS_ERROR_STREAM_NAMED(LOGGER_NAME, "trajectory is empty");
     return false;
   }
 
   current_trajectory_ = trajectory;
   current_index_ = 0;
 
-  std::vector<geometry_msgs::PoseStamped> planner_trajectory(current_trajectory_.movements.size());
-  for (size_t i = 0; i < current_trajectory_.movements.size(); ++i)
-  {
-    planner_trajectory[i].header = current_trajectory_.header;
-    planner_trajectory[i].pose.position.x = current_trajectory_.movements[i].pose.point.x.value;
-    planner_trajectory[i].pose.position.y = current_trajectory_.movements[i].pose.point.y.value;
-    planner_trajectory[i].pose.orientation =
-        tf::createQuaternionMsgFromYaw(current_trajectory_.movements[i].pose.theta.value);
-  }
-
-  return planner_->setPlan(planner_trajectory);
+  const nav_msgs::Path planner_plan
+    = arti_nav_core_utils::convertToPath(current_trajectory_, arti_nav_core_utils::non_finite_values::PASS_THROUGH);
+  return planner_->setPlan(planner_plan.poses);
 }
 
 arti_nav_core::BasePathFollower::BasePathFollowerErrorEnum BasePathFollowerWrapper::computeVelocityCommands(
   geometry_msgs::Twist& next_command)
 {
-  calcualteCurrentIndex();
+  calculateCurrentIndex();
 
   arti_nav_core_msgs::Twist2DWithLimits expected_twist;
   if (!current_trajectory_.movements.empty())
@@ -101,46 +102,29 @@ arti_nav_core::BasePathFollower::BasePathFollowerErrorEnum BasePathFollowerWrapp
 
   if (!planner_->computeVelocityCommands(next_command))
   {
-    ROS_ERROR("can not compute velocity");
-    next_command = geometry_msgs::Twist();
+    ROS_ERROR_STREAM_NAMED(LOGGER_NAME, "can not compute velocity");
+    next_command = {};
     return arti_nav_core::BasePathFollower::BasePathFollowerErrorEnum::NO_COMMAND_POSSIBLE;
   }
 
   // check limits if exist
-  if (expected_twist.theta.has_limits)
+  // Note that an angular velocity should not be angle-normalized (-pi/s is very different from pi/s)
+  if (expected_twist.theta.has_limits && !withinTolerance(next_command.angular.z, expected_twist.theta))
   {
-    if (!withinTolerance(next_command.angular.z, expected_twist.theta.value, expected_twist.theta.upper_limit,
-                        expected_twist.theta.lower_limit, true))
-    {
-      ROS_ERROR("angular rotation velocity violates limits");
-      next_command = geometry_msgs::Twist();
-      return arti_nav_core::BasePathFollower::BasePathFollowerErrorEnum::NO_COMMAND_POSSIBLE;
-    }
+    enforceLimit(next_command, next_command.angular.z, expected_twist.theta, "angular");
   }
 
-  if (expected_twist.x.has_limits)
+  if (expected_twist.x.has_limits && !withinTolerance(next_command.linear.x, expected_twist.x))
   {
-    if (!withinTolerance(next_command.linear.x, expected_twist.x.value, expected_twist.x.upper_limit,
-                         expected_twist.x.lower_limit))
-    {
-      ROS_ERROR("x velocity violates limits");
-      next_command = geometry_msgs::Twist();
-      return arti_nav_core::BasePathFollower::BasePathFollowerErrorEnum::NO_COMMAND_POSSIBLE;
-    }
+    enforceLimit(next_command, next_command.linear.x, expected_twist.x, "x");
   }
 
-  if (expected_twist.y.has_limits)
+  if (expected_twist.y.has_limits && !withinTolerance(next_command.linear.y, expected_twist.y))
   {
-    if (!withinTolerance(next_command.linear.y, expected_twist.y.value, expected_twist.y.upper_limit,
-                         expected_twist.y.lower_limit))
-    {
-      ROS_ERROR("y velocity rotation violates limits");
-      next_command = geometry_msgs::Twist();
-      return arti_nav_core::BasePathFollower::BasePathFollowerErrorEnum::NO_COMMAND_POSSIBLE;
-    }
+    enforceLimit(next_command, next_command.linear.y, expected_twist.y, "y");
   }
 
-  ROS_DEBUG_STREAM("found command: " << next_command);
+  ROS_DEBUG_STREAM_NAMED(LOGGER_NAME, "found command: " << next_command);
   return arti_nav_core::BasePathFollower::BasePathFollowerErrorEnum::COMMAND_FOUND;
 }
 
@@ -149,16 +133,19 @@ bool BasePathFollowerWrapper::isGoalReached()
   return planner_->isGoalReached();
 }
 
-void BasePathFollowerWrapper::calcualteCurrentIndex()
+void BasePathFollowerWrapper::calculateCurrentIndex()
 {
+  std::unique_lock<std::mutex> odom_guard(odometry_mutex_);
+  const geometry_msgs::Pose current_pose = current_pose_;
+  odom_guard.unlock();
+
   double min_distance = std::numeric_limits<double>::max();
   size_t best_index = current_index_;
 
   for (size_t i = current_index_; i < current_trajectory_.movements.size(); ++i)
   {
-    const arti_nav_core_msgs::Pose2DWithLimits current_point = current_trajectory_.movements[i].pose;
-    double current_distance = std::hypot(current_position_.position.x - current_point.point.x.value,
-                                         current_position_.position.y - current_point.point.y.value);
+    const arti_nav_core_msgs::Pose2DWithLimits& current_point = current_trajectory_.movements[i].pose;
+    const double current_distance = calculateDistance(current_point, current_pose);
 
     if (current_distance <= min_distance)
     {
@@ -166,34 +153,66 @@ void BasePathFollowerWrapper::calcualteCurrentIndex()
       best_index = i;
     }
     else
+    {
       break;
+    }
   }
 
   current_index_ = best_index;
 }
 
-void BasePathFollowerWrapper::odomCB(const nav_msgs::Odometry::ConstPtr &msg)
+void BasePathFollowerWrapper::odomCB(const nav_msgs::Odometry::ConstPtr& msg)
 {
   std::lock_guard<std::mutex> odom_guard(odometry_mutex_);
-
-  current_position_ = msg->pose.pose;
+  current_pose_ = msg->pose.pose;
 }
 
-bool BasePathFollowerWrapper::withinTolerance(double current_value, double goal_value, double uper_bound,
-                                              double lower_bound, bool is_angular)
+bool BasePathFollowerWrapper::withinTolerance(
+  double current_value, const arti_nav_core_msgs::ValueWithLimits& goal_value)
 {
-  double distance = current_value - goal_value;
-  if (is_angular)
-    distance = angles::shortest_angular_distance(current_value, goal_value);
-
-  if (distance > uper_bound)
-    return false;
-
-  if (distance < lower_bound)
-    return false;
-
-  return true;
+  const double distance = current_value - goal_value.value;
+  return goal_value.lower_limit <= distance && distance <= goal_value.upper_limit;
 }
+
+void BasePathFollowerWrapper::enforceLimit(
+  geometry_msgs::Twist& next_command, double current_value, const arti_nav_core_msgs::ValueWithLimits& goal_value,
+  const char* name)
+{
+  if (!std::isfinite(current_value))
+  {
+    ROS_WARN_STREAM("current " << name << " velocity is non-finite");
+    return;
+  }
+
+  if (current_value == 0.0)
+  {
+    // Cannot compute a ratio.
+    return;
+  }
+
+  const double min = goal_value.value + goal_value.lower_limit;
+  const double max = goal_value.value + goal_value.upper_limit;
+  double ratio = 1.0;
+  ROS_WARN_STREAM_NAMED(LOGGER_NAME,
+                        name << " velocity violates limits: goal: " << goal_value.value << ", min: " << min
+                             << ", current: " << current_value << ", max: " << max);
+
+  if (max < current_value)
+  {
+    ratio = max / current_value;
+  }
+  else if (min > current_value)
+  {
+    ratio = min / current_value;
+  }
+
+  next_command.angular.z *= ratio;
+  next_command.linear.x *= ratio;
+  next_command.linear.y *= ratio;
+  ROS_WARN_STREAM_NAMED(LOGGER_NAME, "resulting " << name << " velocity: " << current_value * ratio);
+}
+
 }  // namespace arti_wrap_old_nav_core
 
-PLUGINLIB_EXPORT_CLASS(arti_wrap_old_nav_core::BasePathFollowerWrapper, arti_nav_core::BasePathFollower)
+PLUGINLIB_EXPORT_CLASS(arti_wrap_old_nav_core::BasePathFollowerWrapper, arti_nav_core::BasePathFollower
+)

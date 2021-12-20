@@ -12,13 +12,16 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 #ifdef __GNUC__
 #pragma GCC diagnostic push
-
 #pragma GCC diagnostic ignored "-Wunused-parameter"
+#endif
 
+#include <arti_nav_core/transformer.h>
 #include <arti_nav_core_msgs/Pose2DStampedWithLimits.h>
 #include <arti_nav_core_msgs/Path2DWithLimits.h>
 #include <costmap_2d/costmap_2d_ros.h>
+#include <string>
 
+#ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif
 
@@ -29,14 +32,26 @@ class BaseGlobalPlanner
 public:
   virtual ~BaseGlobalPlanner() = default;
 
+  /**
+   * @brief  Constructs the global planner
+   * @param name The name to give this instance of the global planner
+   * @param transformer A pointer to a transformer
+   * @param costmap_ros The cost map to use for assigning costs for a plan
+   */
+  virtual void initialize(std::string name, Transformer* transformer, costmap_2d::Costmap2DROS* costmap_ros) = 0;
+
   /*!
    * set the goal which is used as bases to calculate a path from the current position considering the robots kinematic
    * and the environment.
-   * The plan will reach the given goal considering the kinematic constraints of the robot
+   * The plan will reach the given goal considering the kinematic constraints of the robot and the constraints
+   * imposed by the path limits.
    * @param goal the goal to plan to
+   * @param path_limits limits which should be considered during planning.
    * @return true of the goal update did not cause any error
    */
-  virtual bool setGoal(const arti_nav_core_msgs::Pose2DStampedWithLimits& goal) = 0;
+  virtual bool setGoal(
+    const arti_nav_core_msgs::Pose2DStampedWithLimits& goal,
+    const arti_nav_core_msgs::Path2DWithLimits& path_limits) = 0;
 
   /*!
    * enum to describe the result of the command calculation
@@ -55,13 +70,18 @@ public:
    */
   virtual BaseGlobalPlannerErrorEnum makePlan(arti_nav_core_msgs::Path2DWithLimits& plan) = 0;
 
-  /**
-   * @brief  Constructs the global planner
-   * @param name The name to give this instance of the global planner
-   * @param tf A pointer to a transform listener
-   * @param costmap_ros The cost map to use for assigning costs for a plan
+  /*!
+   * changes the future paths to avoid the section between the given poses if possible.
+   * This may cause that a movement between these two points is not possible at all.
+   * This hint can also be ignored (default implementation).
+   * \param error_pose_a pose which was reached but caused no further progress
+   * \param error_pose_b pose which was not reached
    */
-  virtual void initialize(std::string name, tf::TransformListener* tf, costmap_2d::Costmap2DROS* costmap_ros) = 0;
+  virtual void handlePlannerError(
+    const arti_nav_core_msgs::Pose2DWithLimits& /*error_pose_a*/,
+    const arti_nav_core_msgs::Pose2DWithLimits& /*error_pose_b*/)
+  {
+  }
 };
 }
 

@@ -1,2 +1,4 @@
+# See Movement2DWithLimits for description.
+
 arti_nav_core_msgs/Pose2DStampedWithLimits pose
 arti_nav_core_msgs/Twist2DWithLimits twist

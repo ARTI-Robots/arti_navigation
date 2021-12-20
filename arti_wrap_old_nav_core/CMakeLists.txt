@@ -1,23 +1,21 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(arti_wrap_old_nav_core)
 
-## Compile as C++11, supported in ROS Kinetic and newer
-add_compile_options(-std=c++11)
-
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   arti_nav_core
+  arti_nav_core_utils
   costmap_2d
   geometry_msgs
   nav_core
   nav_msgs
   pluginlib
   roscpp
+  roslint
   std_msgs
   tf
-  roslint
 )
 
 ## System dependencies are found with CMake's conventions
@@ -110,8 +108,8 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-  LIBRARIES base_global_planner_wrapper base_local_planner_wrapper base_path_follower_wrapper
+  INCLUDE_DIRS include
+  LIBRARIES ${PROJECT_NAME}
   CATKIN_DEPENDS arti_nav_core costmap_2d geometry_msgs nav_core nav_msgs pluginlib roscpp std_msgs tf
 #  DEPENDS system_lib
 )
@@ -128,14 +126,11 @@ include_directories(
 )
 
 ## Declare a C++ library
-add_library(base_global_planner_wrapper
+add_library(${PROJECT_NAME}
   src/base_global_planner_wrapper.cpp include/arti_wrap_old_nav_core/base_global_planner_wrapper.h
-)
-add_library(base_local_planner_wrapper
   src/base_local_planner_wrapper.cpp include/arti_wrap_old_nav_core/base_local_planner_wrapper.h
-)
-add_library(base_path_follower_wrapper
   src/base_path_follower_wrapper.cpp include/arti_wrap_old_nav_core/base_path_follower_wrapper.h
+  src/utils.cpp include/arti_wrap_old_nav_core/utils.h
 )
 
 ## Add cmake target dependencies of the library
@@ -156,24 +151,14 @@ add_library(base_path_follower_wrapper
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-add_dependencies(base_global_planner_wrapper arti_nav_core_msgs_generate_messages)
-add_dependencies(base_local_planner_wrapper arti_nav_core_msgs_generate_messages)
-add_dependencies(base_path_follower_wrapper arti_nav_core_msgs_generate_messages)
+add_dependencies(${PROJECT_NAME} arti_nav_core_msgs_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(base_global_planner_wrapper
-  ${catkin_LIBRARIES}
-)
-target_link_libraries(base_local_planner_wrapper
-  ${catkin_LIBRARIES}
-)
-target_link_libraries(base_path_follower_wrapper
+target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
 )
 
-target_compile_options(base_global_planner_wrapper PRIVATE -Wformat -Wall -Wextra -Werror)
-target_compile_options(base_local_planner_wrapper PRIVATE -Wformat -Wall -Wextra -Werror)
-target_compile_options(base_path_follower_wrapper PRIVATE -Wformat -Wall -Wextra -Werror)
+target_compile_options(${PROJECT_NAME} PRIVATE -std=c++11 -Wformat -Wall -Wextra -Werror)
 
 #############
 ## Install ##
@@ -190,7 +175,7 @@ target_compile_options(base_path_follower_wrapper PRIVATE -Wformat -Wall -Wextra
 # )
 
 ## Mark executables and/or libraries for installation
-install(TARGETS base_global_planner_wrapper base_local_planner_wrapper base_path_follower_wrapper
+install(TARGETS ${PROJECT_NAME}
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -204,9 +189,7 @@ install(DIRECTORY include/${PROJECT_NAME}/
 
 ## Mark other files for installation (e.g. launch and bag files, etc.)
 install(FILES
-  global_planner_plugin.xml
-  local_planner_plugin.xml
-  path_follower_plugin.xml
+  arti_nav_core_plugins.xml
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 

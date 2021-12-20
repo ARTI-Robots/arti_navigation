@@ -12,13 +12,16 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 #ifdef __GNUC__
 #pragma GCC diagnostic push
-
 #pragma GCC diagnostic ignored "-Wunused-parameter"
+#endif
 
+#include <arti_nav_core/transformer.h>
 #include <arti_nav_core_msgs/Path2DWithLimits.h>
 #include <arti_nav_core_msgs/Trajectory2DWithLimits.h>
 #include <costmap_2d/costmap_2d_ros.h>
+#include <string>
 
+#ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif
 
@@ -28,6 +31,14 @@ class BaseLocalPlanner
 {
 public:
   virtual ~BaseLocalPlanner() = default;
+
+  /**
+   * @brief  Constructs the local planner
+   * @param name The name to give this instance of the local planner
+   * @param transformer A pointer to a transformer
+   * @param costmap_ros The cost map to use for assigning costs to local plans
+   */
+  virtual void initialize(std::string name, Transformer* transformer, costmap_2d::Costmap2DROS* costmap_ros) = 0;
 
   /*!
    * set the plan which is used as bases to calculate a local plan.
@@ -65,14 +76,6 @@ public:
    * @return if a plan was found or which fault occurred
    */
   virtual BaseLocalPlannerErrorEnum makeTrajectory(arti_nav_core_msgs::Trajectory2DWithLimits& trajectory) = 0;
-
-  /**
-   * @brief  Constructs the local planner
-   * @param name The name to give this instance of the local planner
-   * @param tf A pointer to a transform listener
-   * @param costmap_ros The cost map to use for assigning costs to local plans
-   */
-  virtual void initialize(std::string name, tf::TransformListener* tf, costmap_2d::Costmap2DROS* costmap_ros) = 0;
 
   /**
    * @brief  Check if the goal pose has been achieved by the local planner

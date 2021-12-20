@@ -1,0 +1,42 @@
+/*
+Created by clemens on 24.06.20.
+This file is part of the software provided by ARTI
+Copyright (c) 2020, ARTI
+All rights reserved.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#ifndef ARTI_PATH_FOLLOWER_ABSTRACTION_PATH_FOLLOWER_ABSTRACTION_H
+#define ARTI_PATH_FOLLOWER_ABSTRACTION_PATH_FOLLOWER_ABSTRACTION_H
+
+#include <arti_nav_core_msgs/Trajectory2DWithLimits.h>
+
+namespace arti_path_follower_abstraction
+{
+class PathFollowerAbstraction
+{
+public:
+  PathFollowerAbstraction() = default;
+
+  virtual bool setTrajectory(const arti_nav_core_msgs::Trajectory2DWithLimits& trajectory) = 0;
+
+  enum class PathFollowerAbstractionErrorEnum
+  {
+    GOAL_REACHED,
+    COMMAND_FOUND,
+    OBSTACLE_CLOSE,
+    OBSTACLE_IN_FRONT,
+    FAR_FROM_PATH,
+    NO_COMMAND_POSSIBLE
+  };
+
+  virtual PathFollowerAbstractionErrorEnum computeCommand() = 0;
+  virtual bool nonZeroCommandTimedOut() = 0;
+  virtual void resetZeroCommandTime() = 0;
+  virtual void sendStopCommand() = 0;
+  virtual bool isGoalReached() = 0;
+};
+}
+
+#endif //ARTI_PATH_FOLLOWER_ABSTRACTION_PATH_FOLLOWER_ABSTRACTION_H

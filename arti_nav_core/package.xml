@@ -1,44 +1,47 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>arti_nav_core</name>
-  <version>0.1.0</version>
+  <version>1.0.0</version>
   <description>Interfaces used to implement navigation algorithms</description>
-  <license>All rights reserved</license>
+  <license>BSD</license>
 
   <maintainer email="c.muehlbacher@arti-robots.com">Clemens Mühlbacher</maintainer>
 
   <author email="c.muehlbacher@arti-robots.com">Clemens Mühlbacher</author>
+  <author email="a.buchegger@arti-robots.com">Alexander Buchegger</author>
+
   <buildtool_depend>catkin</buildtool_depend>
 
-  <build_depend>std_msgs</build_depend>
-  <build_depend>geometry_msgs</build_depend>
-  <build_depend>costmap_2d</build_depend>
-  <build_depend>tf</build_depend>
-  <build_depend>roscpp</build_depend>
-  <build_depend>pluginlib</build_depend>
-  <build_depend>arti_nav_core_msgs</build_depend>
   <build_depend>ackermann_msgs</build_depend>
+  <build_depend>arti_nav_core_msgs</build_depend>
+  <build_depend>costmap_2d</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>pluginlib</build_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>tf</build_depend>
+  <build_depend>tf2_ros</build_depend>
 
-  <build_export_depend>std_msgs</build_export_depend>
-  <build_export_depend>geometry_msgs</build_export_depend>
-  <build_export_depend>costmap_2d</build_export_depend>
-  <build_export_depend>tf</build_export_depend>
-  <build_export_depend>roscpp</build_export_depend>
-  <build_export_depend>pluginlib</build_export_depend>
-  <build_export_depend>arti_nav_core_msgs</build_export_depend>
   <build_export_depend>ackermann_msgs</build_export_depend>
+  <build_export_depend>arti_nav_core_msgs</build_export_depend>
+  <build_export_depend>costmap_2d</build_export_depend>
+  <build_export_depend>geometry_msgs</build_export_depend>
+  <build_export_depend>pluginlib</build_export_depend>
+  <build_export_depend>roscpp</build_export_depend>
+  <build_export_depend>std_msgs</build_export_depend>
+  <build_export_depend>tf</build_export_depend>
+  <build_export_depend>tf2_ros</build_export_depend>
 
-  <exec_depend>std_msgs</exec_depend>
-  <exec_depend>geometry_msgs</exec_depend>
-  <exec_depend>costmap_2d</exec_depend>
-  <exec_depend>tf</exec_depend>
-  <exec_depend>roscpp</exec_depend>
-  <exec_depend>pluginlib</exec_depend>
-  <exec_depend>arti_nav_core_msgs</exec_depend>
   <exec_depend>ackermann_msgs</exec_depend>
-  
-  <!-- The export tag contains other, unspecified, tags -->
+  <exec_depend>arti_nav_core_msgs</exec_depend>
+  <exec_depend>costmap_2d</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>pluginlib</exec_depend>
+  <exec_depend>roscpp</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>tf</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+
   <export>
-    <!-- Other tools can request additional information be placed here -->
   </export>
 </package>

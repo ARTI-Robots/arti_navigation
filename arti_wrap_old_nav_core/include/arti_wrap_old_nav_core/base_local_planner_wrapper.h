@@ -11,55 +11,58 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #define ARTI_WRAP_OLD_NAV_CORE_BASE_LOCAL_PLANNER_WRAPPER_H
 
 #include <arti_nav_core/base_local_planner.h>
-#include <string>
-#include <vector>
-#include <mutex>
 #include <condition_variable>
-
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-
-#include <pluginlib/class_loader.h>
-#include <costmap_2d/costmap_2d_ros.h>
-#include <tf/transform_listener.h>
+#include <mutex>
 #include <nav_core/base_local_planner.h>
 #include <nav_msgs/Path.h>
-
-#pragma GCC diagnostic pop
-#endif
-
+#include <pluginlib/class_loader.h>
+#include <string>
+#include <vector>
 
 namespace arti_wrap_old_nav_core
 {
+
 class BaseLocalPlannerWrapper : public arti_nav_core::BaseLocalPlanner
 {
 public:
   BaseLocalPlannerWrapper();
+
+  void initialize(
+    std::string name, arti_nav_core::Transformer* transformer, costmap_2d::Costmap2DROS* costmap_ros) override;
+
   bool setPlan(const arti_nav_core_msgs::Path2DWithLimits& plan) override;
+
   bool setFinalVelocityConstraints(const arti_nav_core_msgs::Twist2DWithLimits& final_twist) override;
+
   arti_nav_core::BaseLocalPlanner::BaseLocalPlannerErrorEnum makeTrajectory(
-      arti_nav_core_msgs::Trajectory2DWithLimits& trajectory) override;
-  void initialize(std::string name, tf::TransformListener* tf, costmap_2d::Costmap2DROS* costmap_ros) override;
+    arti_nav_core_msgs::Trajectory2DWithLimits& trajectory) override;
+
   bool isGoalReached() override;
 
 private:
-  void localPlanCB(const nav_msgs::Path::ConstPtr& local_path);
+  static const char LOGGER_NAME[];
+
+  void localPlanCB(const nav_msgs::Path::ConstPtr& local_plan);
+
+  /**
+   * Convert a local plan to a trajectory with the help of the global plan and final twist.
+   */
+  void convertToTrajectory(
+    const nav_msgs::Path& local_plan, arti_nav_core_msgs::Trajectory2DWithLimits& trajectory) const;
 
   pluginlib::ClassLoader<nav_core::BaseLocalPlanner> plugin_loader_;
   boost::shared_ptr<nav_core::BaseLocalPlanner> planner_;
 
-  ros::Subscriber trajectory_sub_;
-  std::mutex trajectory_mutex_;
-  std::condition_variable trajectory_condition_variable_;
-  bool received_trajectory_;
-  arti_nav_core_msgs::Trajectory2DWithLimits trajectory_;
-
   ros::NodeHandle private_nh_;
+  ros::Subscriber local_plan_subscriber_;
+  std::mutex local_plan_mutex_;
+  std::condition_variable local_plan_condition_variable_;
+  nav_msgs::Path::ConstPtr local_plan_;
 
   arti_nav_core_msgs::Twist2DWithLimits final_twist_;
+  arti_nav_core_msgs::Path2DWithLimits global_plan_;
 };
+
 }  // namespace arti_wrap_old_nav_core
 
 #endif  // ARTI_WRAP_OLD_NAV_CORE_BASE_LOCAL_PLANNER_WRAPPER_H

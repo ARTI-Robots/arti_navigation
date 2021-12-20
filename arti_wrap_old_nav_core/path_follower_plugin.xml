@@ -1,9 +1,0 @@
-<!--suppress XmlUnboundNsPrefix -->
-<library path="lib/libbase_path_follower_wrapper">
-  <class name="arti_wrap_old_nav_core/BasePathFollowerWrapper" type="arti_wrap_old_nav_core::BasePathFollowerWrapper"
-         base_class_type="arti_nav_core::BasePathFollower">
-    <description>
-      Wrapper to use ros local planners as new path follower
-    </description>
-  </class>
-</library>

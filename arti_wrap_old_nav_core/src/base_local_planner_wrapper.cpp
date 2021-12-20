@@ -8,45 +8,50 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
  */
 
 #include <arti_wrap_old_nav_core/base_local_planner_wrapper.h>
+#include <arti_nav_core_utils/conversions.h>
+#include <arti_wrap_old_nav_core/utils.h>
+#include <chrono>
 #include <pluginlib/class_list_macros.h>
-#include <string>
-#include <vector>
+#include <tf/transform_datatypes.h>
 
 namespace arti_wrap_old_nav_core
 {
-BaseLocalPlannerWrapper::BaseLocalPlannerWrapper() : plugin_loader_("nav_core", "nav_core::BaseLocalPlanner"),
-                                                     private_nh_("~")
-{}
 
-void BaseLocalPlannerWrapper::initialize(std::string name,
-                                         tf::TransformListener *tf,
-                                         costmap_2d::Costmap2DROS *costmap_ros)
+const char BaseLocalPlannerWrapper::LOGGER_NAME[] = "base_local_planner_wrapper";
+
+BaseLocalPlannerWrapper::BaseLocalPlannerWrapper()
+  : plugin_loader_("nav_core", "nav_core::BaseLocalPlanner"), private_nh_("~")
+{
+}
+
+void BaseLocalPlannerWrapper::initialize(
+  std::string name, arti_nav_core::Transformer* transformer, costmap_2d::Costmap2DROS* costmap_ros)
 {
   private_nh_ = ros::NodeHandle("~/" + name);
-  std::string ros_local_planer_name;
-  if (!private_nh_.getParam("local_planer_name", ros_local_planer_name))
+  const std::string wrapped_type = private_nh_.param<std::string>("wrapped_type", {});
+  if (wrapped_type.empty())
+  {
     throw std::runtime_error("no local planner specified to wrap");
+  }
 
-  ROS_INFO_STREAM("local planner wrapper global frame id: " << costmap_ros->getGlobalFrameID());
-  ROS_INFO_STREAM("local planner wrapper robot footprint polygon: " << costmap_ros->getRobotFootprintPolygon());
+  ROS_DEBUG_STREAM_NAMED(LOGGER_NAME, "local planner wrapper global frame id: " << costmap_ros->getGlobalFrameID());
+  ROS_DEBUG_STREAM_NAMED(LOGGER_NAME,
+                         "local planner wrapper robot footprint polygon: " << costmap_ros->getRobotFootprintPolygon());
 
   try
   {
-    planner_ = plugin_loader_.createInstance(ros_local_planer_name);
+    planner_ = plugin_loader_.createInstance(wrapped_type);
   }
   catch (const pluginlib::PluginlibException& ex)
   {
-    ROS_FATAL_STREAM("Failed to load the " << ros_local_planer_name << " with fault " << ex.what());
-    throw ex;
+    ROS_FATAL_STREAM_NAMED(LOGGER_NAME, "Failed to load the '" << wrapped_type << "' plugin: " << ex.what());
+    throw;
   }
 
-  std::string plugin_name = plugin_loader_.getName(ros_local_planer_name);
-  planner_->initialize(plugin_name, tf, costmap_ros);
+  planner_->initialize(name, transformer, costmap_ros);
 
-  std::string plan_topic_name = private_nh_.param<std::string>("plan_topic_name", "local_plan");
-
-  private_nh_ = ros::NodeHandle("~/" + plugin_name);
-  trajectory_sub_ = private_nh_.subscribe<nav_msgs::Path>(plan_topic_name, 1, &BaseLocalPlannerWrapper::localPlanCB, this);
+  const std::string local_plan_topic = private_nh_.param<std::string>("local_plan_topic", "local_plan");
+  local_plan_subscriber_ = private_nh_.subscribe(local_plan_topic, 1, &BaseLocalPlannerWrapper::localPlanCB, this);
 }
 
 bool BaseLocalPlannerWrapper::isGoalReached()
@@ -55,70 +60,70 @@ bool BaseLocalPlannerWrapper::isGoalReached()
 }
 
 arti_nav_core::BaseLocalPlanner::BaseLocalPlannerErrorEnum BaseLocalPlannerWrapper::makeTrajectory(
-    arti_nav_core_msgs::Trajectory2DWithLimits &trajectory)
+  arti_nav_core_msgs::Trajectory2DWithLimits& trajectory)
 {
   if (!planner_)
   {
-    ROS_WARN_STREAM("planner not initialized");
-    return BaseLocalPlanner::BaseLocalPlannerErrorEnum::NO_TRAJECTORY_POSSIBLE;
+    ROS_WARN_STREAM_NAMED(LOGGER_NAME, "planner not initialized");
+    return BaseLocalPlannerErrorEnum::NO_TRAJECTORY_POSSIBLE;
   }
 
-  ROS_DEBUG_STREAM_NAMED("base_local_planner_wrapper", "BaseLocalPlannerWrapper::makeTrajectory: 1");
-  std::unique_lock<std::mutex> trajectory_lock(trajectory_mutex_);
-  received_trajectory_ = false;
+  ROS_DEBUG_STREAM_NAMED(LOGGER_NAME, "BaseLocalPlannerWrapper::makeTrajectory: 1");
+  std::unique_lock<std::mutex> local_plan_lock(local_plan_mutex_);
+  local_plan_.reset();
 
-  ROS_DEBUG_STREAM_NAMED("base_local_planner_wrapper", "BaseLocalPlannerWrapper::makeTrajectory: 2");
+  ROS_DEBUG_STREAM_NAMED(LOGGER_NAME, "BaseLocalPlannerWrapper::makeTrajectory: 2");
 
   if (planner_->isGoalReached())
   {
-    ROS_DEBUG_STREAM_NAMED("base_local_planner_wrapper", "no plan needed goal is reached");
-    return BaseLocalPlanner::BaseLocalPlannerErrorEnum::GOAL_REACHED;
+    ROS_DEBUG_STREAM_NAMED(LOGGER_NAME, "no plan needed goal is reached");
+    return BaseLocalPlannerErrorEnum::GOAL_REACHED;
   }
 
   geometry_msgs::Twist next_cmd_vel;
   if (!planner_->computeVelocityCommands(next_cmd_vel))
   {
-    ROS_WARN_STREAM("failed to calculate trajectory");
-    return BaseLocalPlanner::BaseLocalPlannerErrorEnum::NO_TRAJECTORY_POSSIBLE;
+    ROS_WARN_STREAM_NAMED(LOGGER_NAME, "failed to calculate trajectory");
+    return BaseLocalPlannerErrorEnum::NO_TRAJECTORY_POSSIBLE;
   }
 
   if (planner_->isGoalReached())
   {
-    ROS_DEBUG_STREAM_NAMED("base_local_planner_wrapper", "goal is reached wtf");
-    return BaseLocalPlanner::BaseLocalPlannerErrorEnum::GOAL_REACHED;
+    ROS_DEBUG_STREAM_NAMED(LOGGER_NAME, "goal is reached after computing velocity commands, this is strange");
+    return BaseLocalPlannerErrorEnum::GOAL_REACHED;
   }
 
-  ROS_DEBUG_STREAM_NAMED("base_local_planner_wrapper", "found next command: " << next_cmd_vel);
+  ROS_DEBUG_STREAM_NAMED(LOGGER_NAME, "found next command: " << next_cmd_vel << ", now waiting for local plan");
 
-  ROS_DEBUG_STREAM_NAMED("base_local_planner_wrapper", "BaseLocalPlannerWrapper::makeTrajectory: 3");
+  const auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(1000);
+  while (!local_plan_)
+  {
+    if (local_plan_condition_variable_.wait_until(local_plan_lock, timeout) == std::cv_status::timeout)
+    {
+      if (!local_plan_)
+      {
+        ROS_WARN_STREAM_NAMED(LOGGER_NAME, "timed out waiting for local plan from planner, maybe we subscribed to the"
+                                           " wrong topic");
+        return BaseLocalPlannerErrorEnum::NO_TRAJECTORY_POSSIBLE;
+      }
+    }
+  }
 
-  while (!received_trajectory_)
-    trajectory_condition_variable_.wait(trajectory_lock);
+  nav_msgs::Path::ConstPtr local_plan;
+  local_plan.swap(local_plan_);
+  local_plan_lock.unlock();
 
-  ROS_DEBUG_STREAM_NAMED("base_local_planner_wrapper", "BaseLocalPlannerWrapper::makeTrajectory: 4");
-
-  trajectory = trajectory_;
-
-  ROS_DEBUG_STREAM_NAMED("base_local_planner_wrapper", "BaseLocalPlannerWrapper::makeTrajectory: 5");
-
-  return arti_nav_core::BaseLocalPlanner::BaseLocalPlannerErrorEnum::TRAJECTORY_FOUND;
+  convertToTrajectory(*local_plan, trajectory);
+  return BaseLocalPlannerErrorEnum::TRAJECTORY_FOUND;
 }
 
-bool BaseLocalPlannerWrapper::setPlan(const arti_nav_core_msgs::Path2DWithLimits &plan)
+bool BaseLocalPlannerWrapper::setPlan(const arti_nav_core_msgs::Path2DWithLimits& plan)
 {
-  if (plan.poses.empty())
-    return planner_->setPlan(std::vector<geometry_msgs::PoseStamped>());
+  global_plan_ = plan;
 
-  std::vector<geometry_msgs::PoseStamped> planner_plan(plan.poses.size());
-  for (size_t i = 0; i < planner_plan.size(); ++i)
-  {
-    planner_plan[i].header = plan.header;
-    planner_plan[i].pose.position.x = plan.poses[i].point.x.value;
-    planner_plan[i].pose.position.y = plan.poses[i].point.y.value;
-    planner_plan[i].pose.orientation = tf::createQuaternionMsgFromYaw(plan.poses[i].theta.value);
-  }
-
-  return planner_->setPlan(planner_plan);
+  const nav_msgs::Path planner_plan
+    = arti_nav_core_utils::convertToPath(plan, arti_nav_core_utils::non_finite_values::PASS_THROUGH);
+  return planner_->setPlan(planner_plan.poses);
 }
 
 bool BaseLocalPlannerWrapper::setFinalVelocityConstraints(const arti_nav_core_msgs::Twist2DWithLimits& final_twist)
@@ -128,48 +133,85 @@ bool BaseLocalPlannerWrapper::setFinalVelocityConstraints(const arti_nav_core_ms
   return true;
 }
 
-void BaseLocalPlannerWrapper::localPlanCB(const nav_msgs::Path::ConstPtr &local_path)
+void BaseLocalPlannerWrapper::localPlanCB(const nav_msgs::Path::ConstPtr& local_plan)
 {
-  ROS_DEBUG_STREAM_NAMED("base_local_planner_wrapper", "BaseLocalPlannerWrapper::localPlanCB: 1");
-
-  std::unique_lock<std::mutex> trajectory_lock(trajectory_mutex_);
-
-  ROS_DEBUG_STREAM_NAMED("base_local_planner_wrapper", "BaseLocalPlannerWrapper::localPlanCB: 2");
-
-  if (received_trajectory_)
-    return;
-
-  ROS_DEBUG_STREAM_NAMED("base_local_planner_wrapper", "BaseLocalPlannerWrapper::localPlanCB: 3");
-
-  received_trajectory_ = true;
-
-  ROS_DEBUG_STREAM_NAMED("base_local_planner_wrapper", "BaseLocalPlannerWrapper::localPlanCB: 4");
-
-  trajectory_.movements.clear();
-  if (!local_path->poses.empty())
+  std::unique_lock<std::mutex> local_plan_lock(local_plan_mutex_);
+  if (!local_plan_)
   {
-    trajectory_.header = local_path->poses.front().header;
+    local_plan_ = local_plan;
+    local_plan_condition_variable_.notify_all();
+  }
+}
 
-    trajectory_.movements.resize(local_path->poses.size());
-    for (size_t i = 0; i < local_path->poses.size(); ++i)
+void BaseLocalPlannerWrapper::convertToTrajectory(
+  const nav_msgs::Path& local_plan, arti_nav_core_msgs::Trajectory2DWithLimits& trajectory) const
+{
+  trajectory.movements.clear();
+  if (!local_plan.poses.empty())
+  {
+    trajectory.header = local_plan.poses.front().header;
+
+    trajectory.movements.resize(local_plan.poses.size());
+
+    size_t global_plan_index = 0;
+    for (size_t i = 0; i < local_plan.poses.size(); ++i)
     {
-      trajectory_.movements[i].pose.point.x.value = local_path->poses[i].pose.position.x;
-      trajectory_.movements[i].pose.point.y.value = local_path->poses[i].pose.position.y;
-      trajectory_.movements[i].pose.theta.value = tf::getYaw(local_path->poses[i].pose.orientation);
+      const auto& local_plan_pose = local_plan.poses[i];
+      auto& movement = trajectory.movements[i];
 
-      // set twist to be invalid indication no constraint at all
-      trajectory_.movements[i].twist.x.value = std::numeric_limits<double>::infinity();
-      trajectory_.movements[i].twist.y.value = std::numeric_limits<double>::infinity();
-      trajectory_.movements[i].twist.theta.value = std::numeric_limits<double>::infinity();
+      ROS_DEBUG_STREAM_NAMED(LOGGER_NAME, "local plan pose: " << local_plan_pose);
+
+      movement.pose.point.x.value = local_plan_pose.pose.position.x;
+      movement.pose.point.y.value = local_plan_pose.pose.position.y;
+      movement.pose.theta.value = tf::getYaw(local_plan_pose.pose.orientation);
+
+      if (!global_plan_.poses.empty())
+      {
+        const double current_distance = calculateDistance(global_plan_.poses[global_plan_index], local_plan_pose.pose);
+        ROS_DEBUG_STREAM_NAMED(LOGGER_NAME, "i: " << i << ", global_plan_index: " << global_plan_index
+                                                  << ", current_distance: " << current_distance);
+        for (size_t j = global_plan_index + 1; j < global_plan_.poses.size(); ++j)
+        {
+          const double new_distance = calculateDistance(global_plan_.poses[j], local_plan_pose.pose);
+          ROS_DEBUG_STREAM_NAMED(LOGGER_NAME, "new_distance: " << new_distance);
+          if (new_distance <= current_distance)
+          {
+            global_plan_index = j;
+          }
+          else
+          {
+            break;
+          }
+        }
+
+        const auto& global_plan_pose = global_plan_.poses[global_plan_index];
+
+        ROS_DEBUG_STREAM_NAMED(LOGGER_NAME, "i: " << i << ", used global_plan_index: " << global_plan_index
+                                                  << ", global plan pose: " << global_plan_pose);
+
+        movement.pose.point.x.has_limits = global_plan_pose.point.x.has_limits;
+        movement.pose.point.x.lower_limit = global_plan_pose.point.x.lower_limit;
+        movement.pose.point.x.upper_limit = global_plan_pose.point.x.upper_limit;
+
+        movement.pose.point.y.has_limits = global_plan_pose.point.y.has_limits;
+        movement.pose.point.y.lower_limit = global_plan_pose.point.y.lower_limit;
+        movement.pose.point.y.upper_limit = global_plan_pose.point.y.upper_limit;
+
+        movement.pose.theta.has_limits = global_plan_pose.theta.has_limits;
+        movement.pose.theta.lower_limit = global_plan_pose.theta.lower_limit;
+        movement.pose.theta.upper_limit = global_plan_pose.theta.upper_limit;
+      }
+
+      // Set twist to be non-finite to indicate no constraint at all:
+      movement.twist.x.value = std::numeric_limits<double>::infinity();
+      movement.twist.y.value = std::numeric_limits<double>::infinity();
+      movement.twist.theta.value = std::numeric_limits<double>::infinity();
     }
 
-    ROS_DEBUG_STREAM_NAMED("base_local_planner_wrapper", "BaseLocalPlannerWrapper::localPlanCB: 5");
-
-    trajectory_.movements.back().twist = final_twist_;
+    trajectory.movements.back().twist = final_twist_;
   }
-
-  trajectory_condition_variable_.notify_all();
 }
+
 }  // namespace arti_wrap_old_nav_core
 
 PLUGINLIB_EXPORT_CLASS(arti_wrap_old_nav_core::BaseLocalPlannerWrapper, arti_nav_core::BaseLocalPlanner)

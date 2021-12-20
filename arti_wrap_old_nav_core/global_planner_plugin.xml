@@ -1,9 +1,0 @@
-<!--suppress XmlUnboundNsPrefix -->
-<library path="lib/libbase_global_planner_wrapper">
-  <class name="arti_nav_core/BaseGlobalPlannerWrapper" type="arti_wrap_old_nav_core::BaseGlobalPlannerWrapper"
-         base_class_type="arti_nav_core::BaseGlobalPlanner">
-    <description>
-      Wrapper to use ros global planners in the new nav core
-    </description>
-  </class>
-</library>

@@ -11,47 +11,42 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #define ARTI_WRAP_OLD_NAV_CORE_BASE_GLOBAL_PLANNER_WRAPPER_H
 
 #include <arti_nav_core/base_global_planner.h>
+#include <nav_core/base_global_planner.h>
+#include <pluginlib/class_loader.h>
 #include <string>
 #include <vector>
 
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-
-#include <pluginlib/class_loader.h>
-#include <costmap_2d/costmap_2d_ros.h>
-#include <tf/transform_listener.h>
-#include <nav_core/base_global_planner.h>
-
-#pragma GCC diagnostic pop
-#endif
-
-
 namespace arti_wrap_old_nav_core
 {
+
 class BaseGlobalPlannerWrapper : public arti_nav_core::BaseGlobalPlanner
 {
 public:
   BaseGlobalPlannerWrapper();
 
-  bool setGoal(const arti_nav_core_msgs::Pose2DStampedWithLimits& goal) override;
+  void initialize(
+    std::string name, arti_nav_core::Transformer* transformer, costmap_2d::Costmap2DROS* costmap_ros) override;
+
+  bool setGoal(
+    const arti_nav_core_msgs::Pose2DStampedWithLimits& goal,
+    const arti_nav_core_msgs::Path2DWithLimits& path_limits) override;
 
   arti_nav_core::BaseGlobalPlanner::BaseGlobalPlannerErrorEnum makePlan(
-      arti_nav_core_msgs::Path2DWithLimits& plan) override;
-
-  void initialize(std::string name, tf::TransformListener* tf, costmap_2d::Costmap2DROS* costmap_ros) override;
+    arti_nav_core_msgs::Path2DWithLimits& plan) override;
 
 private:
+  static const char LOGGER_NAME[];
+
   pluginlib::ClassLoader<nav_core::BaseGlobalPlanner> plugin_loader_;
   boost::shared_ptr<nav_core::BaseGlobalPlanner> planner_;
 
   geometry_msgs::PoseStamped goal_;
-  arti_nav_core_msgs::Pose2DStampedWithLimits goal_limits_;
+  arti_nav_core_msgs::Path2DWithLimits path_limits_;
 
-  tf::TransformListener* tf_;
-  costmap_2d::Costmap2DROS* costmap_;
+  arti_nav_core::Transformer* transformer_{nullptr};
+  costmap_2d::Costmap2DROS* costmap_{nullptr};
 };
+
 }  // namespace arti_wrap_old_nav_core
 
 #endif  // ARTI_WRAP_OLD_NAV_CORE_BASE_GLOBAL_PLANNER_WRAPPER_H

@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<library path="lib/libarti_wrap_old_nav_core">
+  <class name="arti_wrap_old_nav_core/BaseGlobalPlannerWrapper" type="arti_wrap_old_nav_core::BaseGlobalPlannerWrapper"
+         base_class_type="arti_nav_core::BaseGlobalPlanner">
+    <description>
+      Wrapper to use ROS global planners in the new nav core
+    </description>
+  </class>
+
+  <!-- Also include the old name for backwards compatibility: -->
+  <class name="arti_nav_core/BaseGlobalPlannerWrapper" type="arti_wrap_old_nav_core::BaseGlobalPlannerWrapper"
+         base_class_type="arti_nav_core::BaseGlobalPlanner">
+    <description>
+      Wrapper to use ROS global planners in the new nav core
+    </description>
+  </class>
+
+  <class name="arti_wrap_old_nav_core/BaseLocalPlannerWrapper" type="arti_wrap_old_nav_core::BaseLocalPlannerWrapper"
+         base_class_type="arti_nav_core::BaseLocalPlanner">
+    <description>
+      Wrapper to use ROS local planners in the new nav core
+    </description>
+  </class>
+
+  <!-- Also include the old name for backwards compatibility: -->
+  <class name="arti_nav_core/BaseLocalPlannerWrapper" type="arti_wrap_old_nav_core::BaseLocalPlannerWrapper"
+         base_class_type="arti_nav_core::BaseLocalPlanner">
+    <description>
+      Wrapper to use ROS local planners in the new nav core
+    </description>
+  </class>
+
+  <class name="arti_wrap_old_nav_core/BasePathFollowerWrapper" type="arti_wrap_old_nav_core::BasePathFollowerWrapper"
+         base_class_type="arti_nav_core::BasePathFollower">
+    <description>
+      Wrapper to use ROS local planners as path followers in the new nav core
+    </description>
+  </class>
+</library>
