@@ -13,9 +13,13 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include <pluginlib/class_list_macros.h>
 #include <tf/transform_datatypes.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <arti_nav_core_utils/conversions.h>
 
 namespace arti_pass_through_planner
 {
+
+const char BaseLocalPlannerPassThrough::LOGGER_NAME[] = "pass_through_local_planner";
+
 bool BaseLocalPlannerPassThrough::setPlan(const arti_nav_core_msgs::Path2DWithLimits& plan)
 {
   trajectory_.header = plan.header;
@@ -29,6 +33,11 @@ bool BaseLocalPlannerPassThrough::setPlan(const arti_nav_core_msgs::Path2DWithLi
     trajectory_.movements[i].twist.theta.value = std::numeric_limits<double>::infinity();
   }
 
+  // publish input path (convert to path without limits)
+  nav_msgs::Path p = arti_nav_core_utils::convertToPath(trajectory_, arti_nav_core_utils::non_finite_values::THROW);
+  pub_path_.publish(p);
+  path_with_velocity_publisher_.publish(trajectory_);
+  ROS_DEBUG_STREAM_NAMED(LOGGER_NAME, "new path published");
   return true;
 }
 
@@ -60,17 +69,22 @@ void BaseLocalPlannerPassThrough::initialize(
 
   xy_close_tolerance_increase_ = private_nh_.param<double>("xy_close_tolerance_increase", 1.0);
   yaw_close_tolerance_increase_ = private_nh_.param<double>("yaw_close_tolerance_increase", 1.0);
+
+  pub_path_ = private_nh_.advertise<nav_msgs::Path>("global_path", 5, true);
+  path_with_velocity_publisher_ =arti_nav_core_utils::TrajectoryWithVelocityMarkersPublisher(private_nh_, "local_path_with_velocity");
 }
 
 bool BaseLocalPlannerPassThrough::isGoalReached()
 {
   if (!robot_information_)
   {
+    ROS_ERROR_STREAM("robot information not available");
     return false;
   }
 
   if (trajectory_.movements.empty())
   {
+    ROS_ERROR_STREAM("no trajectory set");
     return true;
   }
 
@@ -92,9 +106,16 @@ bool BaseLocalPlannerPassThrough::isGoalReached()
 
   const arti_nav_core_msgs::Pose2DWithLimits& goal = trajectory_.movements.back().pose;
 
-  return xValueWithinTolerance(current_pose_tfd->pose.position.x, goal.point.x)
+  bool result = (xValueWithinTolerance(current_pose_tfd->pose.position.x, goal.point.x)
          && yValueWithinTolerance(current_pose_tfd->pose.position.y, goal.point.y)
-         && thetaValueWithinTolerance(tf::getYaw(current_pose_tfd->pose.orientation), goal.theta);
+         && thetaValueWithinTolerance(tf::getYaw(current_pose_tfd->pose.orientation), goal.theta));
+
+  if (result)
+  {
+    ROS_INFO_STREAM_NAMED(LOGGER_NAME ,"goal is reached");
+  }
+
+  return result;
 }
 
 bool BaseLocalPlannerPassThrough::xValueWithinTolerance(

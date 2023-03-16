@@ -27,16 +27,15 @@ bool BaseNetworkPlannerPassThrough::setGoal(const arti_nav_core_msgs::Pose2DStam
   return true;
 }
 
-arti_nav_core::BaseNetworkPlanner::BaseNetworkPlannerErrorEnum BaseNetworkPlannerPassThrough::makePlan(
-  arti_nav_core_msgs::Path2DWithLimits& path)
+arti_nav_core::BaseNetworkPlanner::BaseNetworkPlannerErrorEnum BaseNetworkPlannerPassThrough::makePlan(arti_nav_core_msgs::Movement2DGoalWithConstraints& plan)
 {
-  if (!path_)
+  if (path_->poses.empty())
   {
     ROS_ERROR_STREAM("BaseNetworkPlannerPassThrough::makePlan called before goal was set");
     return BaseNetworkPlannerErrorEnum::NO_PATH_POSSIBLE;
   }
 
-  path = *path_;
+  plan.path_limits = *path_;
   return BaseNetworkPlannerErrorEnum::PLAN_FOUND;
 }
 

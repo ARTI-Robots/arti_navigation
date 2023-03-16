@@ -11,6 +11,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #define ARTI_PASS_THROUGH_PLANNER_BASE_NETWORK_PLANNER_PASS_THROUGH_H
 
 #include <arti_nav_core/base_network_planner.h>
+#include <arti_nav_core_msgs/Movement2DGoalWithConstraints.h>
 #include <boost/optional.hpp>
 
 namespace arti_pass_through_planner
@@ -25,7 +26,7 @@ public:
 
   bool setGoal(const arti_nav_core_msgs::Pose2DStampedWithLimits& goal) override;
 
-  BaseNetworkPlannerErrorEnum makePlan(arti_nav_core_msgs::Path2DWithLimits& path) override;
+  BaseNetworkPlannerErrorEnum makePlan(arti_nav_core_msgs::Movement2DGoalWithConstraints& plan) override;
 
   void handlePlannerError(
     const arti_nav_core_msgs::Pose2DWithLimits& error_pose_a,

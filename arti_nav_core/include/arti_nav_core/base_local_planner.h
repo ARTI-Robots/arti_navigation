@@ -82,6 +82,13 @@ public:
    * @return True if achieved, false otherwise
    */
   virtual bool isGoalReached() = 0;
+
+  /*
+   * a possibility to reset, for planners which cache the current trajectory for next planning phase
+   */
+  virtual void resetPlanner()
+  {
+  }
 };
 }
 

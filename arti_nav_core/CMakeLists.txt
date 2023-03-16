@@ -139,6 +139,7 @@ install(DIRECTORY include/${PROJECT_NAME}/
 catkin_add_gtest(${PROJECT_NAME}-test
 	include/arti_nav_core/base_global_planner.h
 	include/arti_nav_core/base_local_planner.h
+	include/arti_nav_core/base_local_planner_post_processing.h
 	include/arti_nav_core/base_network_planner.h
 	include/arti_nav_core/base_path_follower.h
 	include/arti_nav_core/base_path_follower_ackermann.h

@@ -11,6 +11,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #define ARTI_PASS_THROUGH_PLANNER_BASE_LOCAL_PLANNER_PASS_THROUGH_H
 
 #include <arti_nav_core/base_local_planner.h>
+#include <arti_nav_core_utils/visualization.h>
 #include <arti_pass_through_planner/robot_information.h>
 #include <memory>
 #include <ros/node_handle.h>
@@ -35,6 +36,9 @@ public:
 
   bool isGoalReached() override;
 
+protected:
+  static const char LOGGER_NAME[];
+
 private:
   static bool withinTolerance(
     double current_value, double goal_value, double upper_bound, double lower_bound, double tolerance_increase,
@@ -54,6 +58,9 @@ private:
 
   double xy_close_tolerance_increase_{1.0};
   double yaw_close_tolerance_increase_{1.0};
+
+  ros::Publisher pub_path_;
+  arti_nav_core_utils::TrajectoryWithVelocityMarkersPublisher path_with_velocity_publisher_;
 };
 
 }

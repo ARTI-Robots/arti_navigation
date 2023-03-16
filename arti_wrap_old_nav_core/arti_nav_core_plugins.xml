@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <library path="lib/libarti_wrap_old_nav_core">
-  <class name="arti_wrap_old_nav_core/BaseGlobalPlannerWrapper" type="arti_wrap_old_nav_core::BaseGlobalPlannerWrapper"
-         base_class_type="arti_nav_core::BaseGlobalPlanner">
+  <class name="arti_wrap_old_nav_core/BaseNetworkPlannerWrapper" type="arti_wrap_old_nav_core::BaseNetworkPlannerWrapper"
+         base_class_type="arti_nav_core::BaseNetworkPlanner">
     <description>
-      Wrapper to use ROS global planners in the new nav core
+      Wrapper to use ROS global planners as network planner in the new nav core
     </description>
   </class>
 

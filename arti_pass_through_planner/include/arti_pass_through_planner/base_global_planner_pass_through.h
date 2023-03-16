@@ -32,10 +32,14 @@ public:
 
 protected:
   static bool equal(
-    const arti_nav_core_msgs::Pose2DWithLimits& pose_a, const arti_nav_core_msgs::Pose2DWithLimits& pose_b);
+    const arti_nav_core_msgs::Pose2DWithLimits& pose_a, const arti_nav_core_msgs::Pose2DWithLimits& pose_b, const double
+    epsilon=0.01);
 
+  ros::NodeHandle nh_;
   arti_nav_core::Transformer* transformer_{nullptr};
   arti_nav_core_msgs::Path2DWithLimits plan_;
+  ros::Publisher pub_path_;
+
 };
 
 }

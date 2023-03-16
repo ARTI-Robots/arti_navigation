@@ -5,7 +5,7 @@ import math
 import os.path
 import rospy
 
-from geometry_msgs.msg import Point, Pose, PoseStamped, Quaternion
+from geometry_msgs.msg import Point, Pose, PoseStamped, PoseWithCovariance, Quaternion
 from nav_msgs.msg import Odometry, Path
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 
@@ -35,7 +35,8 @@ class RecordTrajectory(object):
         self.cyaw = []
 
         self.path_pub = rospy.Publisher('~path', Path, latch=True, queue_size=1)
-        rospy.Subscriber("/ukf_pose", Odometry, self.odom_callback, queue_size=1)
+        self.odom_subscriber = rospy.Subscriber("/ukf_pose", Odometry, self.odom_callback, queue_size=1)
+        self.pose_subscriber = rospy.Subscriber("~pose", PoseStamped, self.pose_callback, queue_size=1)
 
     def odom_callback(self, msg):
         """
@@ -59,6 +60,12 @@ class RecordTrajectory(object):
             # check if traveled distance increased relevant enough
             if dist >= self.distance_thresh or abs(angle_diff) > self.angular_thresh_rad:
                 self.add_pose(msg, yaw)
+
+    def pose_callback(self, msg):
+        """
+        :type msg: PoseStamped
+        """
+        self.odom_callback(Odometry(header=msg.header, pose=PoseWithCovariance(pose=msg.pose)))
 
     def add_pose(self, msg, yaw):
         self.cx.append(msg.pose.pose.position.x)

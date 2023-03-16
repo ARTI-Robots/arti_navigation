@@ -90,12 +90,12 @@ class LoadTrajectory(object):
         msg_movement = Movement2DWithLimits()
         msg_movement.pose.point.x.value = x
         msg_movement.pose.point.x.has_limits = True
-        msg_movement.pose.point.x.upper_limit = 0.1
-        msg_movement.pose.point.x.lower_limit = -0.1
+        msg_movement.pose.point.x.upper_limit = 0.01
+        msg_movement.pose.point.x.lower_limit = -0.01
         msg_movement.pose.point.y.value = y
         msg_movement.pose.point.y.has_limits = True
-        msg_movement.pose.point.y.upper_limit = 0.1
-        msg_movement.pose.point.y.lower_limit = -0.1
+        msg_movement.pose.point.y.upper_limit = 0.01
+        msg_movement.pose.point.y.lower_limit = -0.01
         msg_movement.pose.theta.value = theta
         msg_movement.pose.theta.has_limits = True
         msg_movement.pose.theta.upper_limit = 0.01

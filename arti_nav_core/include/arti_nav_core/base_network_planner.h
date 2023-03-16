@@ -16,6 +16,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #endif
 
 #include <arti_nav_core/transformer.h>
+#include <arti_nav_core_msgs/Movement2DGoalWithConstraints.h>
 #include <arti_nav_core_msgs/Path2DWithLimits.h>
 #include <arti_nav_core_msgs/Pose2DStampedWithLimits.h>
 #include <string>
@@ -61,7 +62,7 @@ public:
    * @param plan the plan which was calculated
    * @return if a plan was found or which fault occurred
    */
-  virtual BaseNetworkPlannerErrorEnum makePlan(arti_nav_core_msgs::Path2DWithLimits& path) = 0;
+  virtual BaseNetworkPlannerErrorEnum makePlan(arti_nav_core_msgs::Movement2DGoalWithConstraints& plan) = 0;
 
   /*!
    * changes the network to avoid using navigation between error_pose_a and error_pose_b.
@@ -70,8 +71,10 @@ public:
    * \param error_pose_b pose which was not reached
    */
   virtual void handlePlannerError(
-    const arti_nav_core_msgs::Pose2DWithLimits& error_pose_a,
-    const arti_nav_core_msgs::Pose2DWithLimits& error_pose_b) = 0;
+    const arti_nav_core_msgs::Pose2DWithLimits& /*error_pose_a*/,
+    const arti_nav_core_msgs::Pose2DWithLimits& /*error_pose_b*/)
+  {
+  }
 };
 }
 

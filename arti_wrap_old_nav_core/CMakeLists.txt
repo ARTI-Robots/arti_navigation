@@ -131,7 +131,7 @@ add_library(${PROJECT_NAME}
   src/base_local_planner_wrapper.cpp include/arti_wrap_old_nav_core/base_local_planner_wrapper.h
   src/base_path_follower_wrapper.cpp include/arti_wrap_old_nav_core/base_path_follower_wrapper.h
   src/utils.cpp include/arti_wrap_old_nav_core/utils.h
-)
+  src/base_network_planner_wrapper.cpp include/arti_wrap_old_nav_core/base_network_planner_wrapper.h)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries

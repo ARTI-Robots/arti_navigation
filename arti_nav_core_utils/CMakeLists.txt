@@ -78,7 +78,8 @@ add_library(${PROJECT_NAME}
   src/transformations.cpp include/arti_nav_core_utils/transformations.h
   src/transformer.cpp include/arti_nav_core_utils/transformer.h
   src/visualization.cpp include/arti_nav_core_utils/visualization.h
-  src/nurbs_trajectory_converter.cpp include/arti_nav_core_utils/nurbs_trajectory_converter.h)
+  src/nurbs_trajectory_converter.cpp include/arti_nav_core_utils/nurbs_trajectory_converter.h
+  src/robot_information.cpp include/arti_nav_core_utils/robot_information.h)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries

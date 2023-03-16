@@ -10,6 +10,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include <arti_pass_through_planner/base_global_planner_pass_through.h>
 #include <arti_nav_core_utils/tf2_arti_nav_core_msgs.h>
 #include <arti_nav_core_utils/transformer.h>
+#include <arti_nav_core_utils/conversions.h>
 #include <pluginlib/class_list_macros.h>
 #include <ros/console.h>
 
@@ -19,7 +20,10 @@ namespace arti_pass_through_planner
 void BaseGlobalPlannerPassThrough::initialize(
   std::string /*name*/, arti_nav_core::Transformer* transformer, costmap_2d::Costmap2DROS* /*costmap_ros*/)
 {
+  nh_ = ros::NodeHandle("~/global_pass_through");
   transformer_ = transformer;
+
+  pub_path_ = nh_.advertise<nav_msgs::Path>("global_path", 1, true);
 }
 
 bool BaseGlobalPlannerPassThrough::setGoal(
@@ -33,7 +37,9 @@ bool BaseGlobalPlannerPassThrough::setGoal(
   else
   {
     plan_ = path_limits;
-
+// publish input path (convert to path without limits)
+    nav_msgs::Path p = arti_nav_core_utils::convertToPath(plan_, arti_nav_core_utils::non_finite_values::THROW);
+    pub_path_.publish(p);
     std::string tf_error_message;
     const auto goal_tfd = arti_nav_core_utils::tryToTransform(*transformer_, goal, path_limits.header.frame_id,
                                                               ros::Duration(0.1), &tf_error_message);
@@ -46,6 +52,10 @@ bool BaseGlobalPlannerPassThrough::setGoal(
     if (!equal(plan_.poses.back(), goal_tfd->pose))
     {
       // only add the goal if not already in the path
+      ROS_WARN_STREAM("plan end equals NOT the goal pose! goal will be added now");
+      ROS_DEBUG_STREAM("last element of plan: \n" << plan_.poses.back());
+      ROS_DEBUG_STREAM("goal: \n" << goal_tfd->pose);
+
       plan_.poses.push_back(goal_tfd->pose);
     }
     else
@@ -67,11 +77,16 @@ arti_nav_core::BaseGlobalPlanner::BaseGlobalPlannerErrorEnum BaseGlobalPlannerPa
 
 
 bool BaseGlobalPlannerPassThrough::equal(
-  const arti_nav_core_msgs::Pose2DWithLimits& pose_a, const arti_nav_core_msgs::Pose2DWithLimits& pose_b)
+  const arti_nav_core_msgs::Pose2DWithLimits& pose_a, const arti_nav_core_msgs::Pose2DWithLimits& pose_b, const
+  double epsilon)
 {
-  return pose_a.point.x.value == pose_b.point.x.value
-         && pose_a.point.y.value == pose_b.point.y.value
-         && pose_a.theta.value == pose_b.theta.value;
+  bool forward = (std::abs(pose_a.point.x.value - pose_b.point.x.value) <= epsilon)
+         && (std::abs(pose_a.point.y.value - pose_b.point.y.value) <= epsilon)
+         && (std::abs(pose_a.theta.value - pose_b.theta.value) <= epsilon);
+  bool backward = (std::abs(pose_a.point.x.value - pose_b.point.x.value) <= epsilon)
+                 && (std::abs(pose_a.point.y.value - pose_b.point.y.value) <= epsilon)
+                 && (std::abs(pose_a.theta.value - tfNormalizeAngle(pose_b.theta.value - M_PI)) <= epsilon);
+  return (forward || backward);
 }
 
 }

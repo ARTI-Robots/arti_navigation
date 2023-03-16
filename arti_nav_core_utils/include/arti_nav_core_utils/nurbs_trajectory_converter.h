@@ -18,7 +18,7 @@ class NurbsTrajectoryConverter
 {
 public:
   explicit NurbsTrajectoryConverter(double step_distance, double min_vel = 0.01, double
-  max_lateral_acceleration = 0.1, double max_speed = -1.0f);
+  max_lateral_acceleration = 0.1, double max_speed = -1.0f, double max_delta_omega = 0.0, double wheelbase = 0.0);
   ~NurbsTrajectoryConverter();
 
   arti_nav_core_msgs::Trajectory2DWithLimits convert();
@@ -43,12 +43,16 @@ public:
   double getBrakingDistance(double v_prev, double v_next, double acceleration);
   double getVelFromAcceleration(double dist_traveled, double vel_curr, double acceleration);
   double getVelFromDecelaration(double dist_traveled, double vel_curr, double decelaration);
+  std::vector<double> getKnots();
+  double getDistanceToGoal(int i, double interval);
 
 private:
   double step_distance_;
   double min_vel_;
   double max_lateral_acceleration_;
   double max_speed_;
+  double max_delta_omega_;
+  double wheelbase_;
   double distance_{0.0};
   double orientation_{0.0};
   double acceleration_{0.0};

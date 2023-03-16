@@ -15,9 +15,9 @@ namespace arti_nav_core_utils
 {
 
 NurbsTrajectoryConverter::NurbsTrajectoryConverter(double step_distance, double min_vel, double
-max_lateral_acceleration, double max_speed)
+max_lateral_acceleration, double max_speed, double max_delta_omega, double wheelbase)
 : step_distance_(step_distance), min_vel_(min_vel) , max_lateral_acceleration_(max_lateral_acceleration),
-  max_speed_(max_speed)
+  max_speed_(max_speed), max_delta_omega_(max_delta_omega), wheelbase_(wheelbase)
 {
 }
 
@@ -29,38 +29,41 @@ arti_nav_core_msgs::Trajectory2DWithLimits NurbsTrajectoryConverter::convert()
   //arti_nav_core_msgs::Movement2DWithLimits
   // speed ramp
 
-  int speedup = 0;
-  int speeddown = 0;
-  if (max_speed_ > 0.0)
+  double accumulated_distance = 0.0;
+  //int speedup = 0;
+  //int speeddown = 0;
+/*  if (max_speed_ > 0.0)
   {
     double curr_speed = max_speed_;
 
     double break_dist_start = getBrakingDistance(speed_prev_, curr_speed, acceleration_);
     ROS_DEBUG_STREAM("acc distance: " << break_dist_start);
-    speedup = std::ceil(break_dist_start / step_distance_);
-    ROS_DEBUG_STREAM("speedstep up: " << speedup << " s_ac: " << break_dist_start << " step_dist: " <<
+    //speedup = std::ceil(break_dist_start / step_distance_);
+    //ROS_DEBUG_STREAM("speedstep up: " << speedup << " s_ac: " << break_dist_start << " step_dist: " <<
                                       step_distance_);
     if (speed_prev_ - curr_speed >= 0.0)
     {
-      speedup = 0;
+      //speedup = 0;
     }
 
     double break_dist_end = getBrakingDistance(curr_speed, speed_next_, deceleration_);
     ROS_DEBUG_STREAM("breakdistance: " << break_dist_end);
     //if(break_dist_end > distance_)
     //  break_dist_end = distance_;
-    speeddown = std::ceil(break_dist_end / step_distance_);
+    //speeddown = std::ceil(break_dist_end / step_distance_);
 
     if (speed_next_ - curr_speed >= 0.0)
     {
-      speeddown = 0;
+      //speeddown = 0;
     }
-    ROS_DEBUG_STREAM("speedstep down: " << speeddown << " s_de: " << break_dist_end << " step_dist: " <<
-                                        step_distance_);
-  }
+    //ROS_DEBUG_STREAM("speedstep down: " << speeddown << " s_de: " << break_dist_end << " step_dist: " <<
+    //                                    step_distance_);
+  }*/
   double nr_interval = std::floor(distance_ / step_distance_); //(0.1m)
+  double distance_to_goal = getDistanceToGoal( 0, nr_interval);
+  glm::vec<3, double_t> old_pt;
 
-  boost::optional<double> old_yaw;
+  boost::optional<double> old_yaw = boost::make_optional(false, double());
 
   // iterate over curve with nr_interval steps
   for(int i = 0; i <= nr_interval; i++)
@@ -97,30 +100,47 @@ arti_nav_core_msgs::Trajectory2DWithLimits NurbsTrajectoryConverter::convert()
       move.pose.theta.value = angles::normalize_angle(yaw - orientation_);
     }
     move.pose.theta.has_limits = false;
+    double real_distance = 0.0;
+    if(i > 0)
+    {
+      double val_0 = double(i-1) / double(nr_interval);
 
+      //glm::vec<3, double_t> first_point = tinynurbs::curvePoint(crv_, val_0);
+      real_distance = std::sqrt(((old_pt.x - point.x) * (old_pt.x - point.x)) +
+                                ((old_pt.y - point.y) * (old_pt.y - point.y)));
+    }
+    glm::vec<3, double_t> end_point = tinynurbs::curvePoint(crv_, 1.0);
+
+    accumulated_distance += real_distance;
+    distance_to_goal -= real_distance;
     if (max_speed_ > 0.0)
     {
       move.twist.x.has_limits = true;
       double speed = max_speed_;
 
       // Speed ramp up
-      if ((speed_prev_ <= speed) && (i < speedup) && (speedup != 0)) // omit zero value at start
+      //if ((speed_prev_ <= speed) && (i < speedup) && (speedup != 0)) // omit zero value at start
       {
-        double new_speed = getVelFromAcceleration( i * step_distance_, speed_prev_, acceleration_);
+
+        double new_speed = getVelFromAcceleration( accumulated_distance, speed_prev_, acceleration_);
         //if(i == 0)
         //  new_speed = getVelFromDecelaration((speedup - i+1) * step_distance_, max_speed_, acceleration_);
-        ROS_DEBUG_STREAM("speedup: " << new_speed << " distance: " << i * step_distance_);
+        ROS_DEBUG_STREAM("speedup: " << new_speed << " distance: " << accumulated_distance);//i * step_distance_);
         speed = (speed < new_speed) ? speed : new_speed;
       }
       //Speed ramp down
-      if ((speed_next_ <= speed) && ((i) >= (nr_interval - speeddown)) && (speeddown != 0))
+      //if ((speed_next_ <= speed) && ((i) >= (nr_interval - speeddown)) && (speeddown != 0))
+      double breaking_d = getBrakingDistance(speed_prev_, speed_next_, deceleration_) - distance_to_goal;
+      if(getBrakingDistance(speed_prev_, speed_next_, deceleration_) <= distance_to_goal)
       {
-        int s = nr_interval - i;
-        double new_speed = getVelFromAcceleration(step_distance_ * s, speed_next_, deceleration_);
+        //int s = nr_interval - i;
+        double new_speed = getVelFromAcceleration(distance_to_goal, speed_next_, deceleration_);
+        /*
         ROS_DEBUG_STREAM("nr_interval: " << nr_interval << " i: " << i << " speed_down: " << speeddown
                                          << "calc_speed: " << new_speed
                                          << " soll: " << speed << "  s: " << s);
         ROS_DEBUG_STREAM("new_speed: " << new_speed); //<< "  speed form interpolation: " << speed_new);
+        */
         speed = (speed < new_speed) ? speed : new_speed;
       }
 
@@ -144,6 +164,7 @@ arti_nav_core_msgs::Trajectory2DWithLimits NurbsTrajectoryConverter::convert()
         move.twist.x.upper_limit = speed; // relative limits to target speed aka x.value
         move.twist.x.lower_limit = 0.0;
       }
+
       //move.twist.theta.value = delta_theta?
 
     }
@@ -164,22 +185,23 @@ arti_nav_core_msgs::Trajectory2DWithLimits NurbsTrajectoryConverter::convert()
         "derivative[2] x: " << deriv[2].x << " y:" << deriv[2].y );//<< " | norm x:" << t.x << " y:" << t.y);
       //double k2 = std::hypot(deriv[2].x, deriv[2].y);
 
-
       double k = std::abs((deriv[1].x *deriv[2].y) - (deriv[2].x * deriv[1].y)) / std::pow((std::pow(deriv[1].x,2) +
         std::pow(deriv[1].y, 2)),(3.0/2.0));
       //if(std::abs(k - k2) > 0.02)
       //{
       //  ROS_WARN_STREAM("Radius missmatch k: " << k << " k2: " << k2);
       //}
-      double r = k < 0.0001 ? 100000 : 1 / k; // avoid numerical instability
+      double r = k < 0.0001 ? 10000 : 1 / k; // avoid numerical instability
       ROS_DEBUG_STREAM("K: " << k << " | r: " << r);
       double v_theta = 0.0; //yaw * r; // angular velocity
-      if(old_yaw)
+      if(old_yaw.is_initialized())
       {
-        double delta_t = step_distance_ / std::abs(move.twist.x.value);
-        v_theta = angles::normalize_angle(*old_yaw - yaw) * r/delta_t;
+        // FIX ME real_distance is far from the step distance in curves, is there something better than euclidean
+        // distance? maybe oversampling?
+        double delta_t = real_distance / std::abs(move.twist.x.value);
+        v_theta = angles::normalize_angle(old_yaw.value() - yaw) * r/delta_t;
       }
-      old_yaw = boost::make_optional<double>(yaw);
+      old_yaw = yaw;
       double v_curve_max = std::sqrt(r * max_lateral_acceleration_);
       v_curve_max = v_curve_max > min_vel_ ? v_curve_max : min_vel_;
       if(std::abs(move.twist.x.value) > std::abs(v_curve_max))
@@ -191,9 +213,73 @@ arti_nav_core_msgs::Trajectory2DWithLimits NurbsTrajectoryConverter::convert()
       ROS_DEBUG_STREAM("yaw: " << yaw << "  r: " << r << " v_theta: " << v_theta);
       move.twist.theta.value = v_theta;
 
+      //if( wheelbase_ != 0.0 && max_delta_omega_ != 0.0 &&
+
+      {
+        double r2 = 100000;
+        if((i-1) >= 0 )
+        {
+          double val_0 = double(i - 1) / double(nr_interval);
+          std::vector<glm::vec<3, double_t>> deriv_0 = tinynurbs::curveDerivatives(crv_, 2, val_0);
+          //std::vector<glm::vec<3, double_t>> pos_0 = tinynurbs::curveDerivatives(crv_, 0, val);
+
+
+          // https://en.wikipedia.org/wiki/Curvature#In_terms_of_a_general_parametrization
+          double k2 = std::abs((deriv_0[1].x * deriv_0[2].y) - (deriv_0[2].x * deriv_0[1].y)) /
+                          std::pow((std::pow(deriv_0[1].x,2)+ std::pow(deriv_0[1].y,2)),(3.0 / 2.0));
+
+          r2 = k2 < 0.0001 ? 10000 : 1 / k2;
+        }// avoid numerical instability
+        double omega_end = std::atan2(wheelbase_ , r);
+        double omega_start = std::atan2(wheelbase_ ,r2);
+        if( std::abs(nr_interval - i ) < 1.0)
+        {
+          ROS_INFO("end of edge reached, set end angle to 0.0");
+          omega_end = 0.0;
+        }
+
+        double delta_t = std::abs(omega_start - omega_end) / max_delta_omega_;
+        double v_max = real_distance / delta_t;
+        if((real_distance < 0.001) )
+        {
+          glm::vec<3, double_t> point2 = tinynurbs::curvePoint(crv_, (double(i+1.0)/nr_interval));
+          double dist = std::sqrt(((point.x -point2.x)*(point.x-point2.x))+((point.y -point2.y)*(point.y-point2.y)));
+          v_max = dist/delta_t;
+        }
+
+        ROS_DEBUG("d_omega: %f, v_max [%f]", (omega_start - omega_end)*180.0/M_PI, v_max);
+        ROS_DEBUG("index: [%d], steering_angle: [%f], r: [%f], prev_angle [%f]", i , omega_end*180.0/M_PI, r, omega_start*180.0/M_PI);
+
+        if( (!trajectories.movements.empty()) && !( std::abs(nr_interval - i ) < 1.0))
+        {
+          if (std::abs(trajectories.movements.back().twist.x.value) >= v_max)
+          {
+            ROS_INFO(
+              "MAX velocity reduced to [%f] from [%f], because of max steering angle change limit, index[%d]  ",
+              v_max, trajectories.movements.back().twist.x.value, i);
+            if( v_max < min_vel_)
+            {
+              v_max = min_vel_;
+            }
+            trajectories.movements.back().twist.x.value = std::copysign(v_max, move.twist.x.value);
+          }
+        }
+        else
+        {
+          if (std::abs(move.twist.x.value) >= v_max)
+          {
+          ROS_INFO("first/last movement, MAX velocity reduced to [%f] from [%f], because of max steering angle "
+                   "change limit, index[%d]  ",
+          v_max, move.twist.x.value, i);
+          move.twist.x.value = std::copysign(v_max, move.twist.x.value);
+          }
+        }
+      }
+
       ROS_DEBUG_STREAM("\n #############################################################################");
     }
     trajectories.movements.push_back(move);
+    old_pt = point;
   }
   return trajectories;
 }
@@ -346,6 +432,31 @@ void NurbsTrajectoryConverter::setUseEuclideanDistance()
 void NurbsTrajectoryConverter::setOrientation(double orientation)
 {
   orientation_ = orientation;
+}
+
+std::vector<double> NurbsTrajectoryConverter::getKnots()
+{
+  return knots_;
+}
+
+double NurbsTrajectoryConverter::getDistanceToGoal(int i, double interval)
+{
+  double u = (double)i / interval;
+  glm::vec<3, double> p1 =  tinynurbs::curvePoint(crv_, u);
+  double dist = 0.0;
+  for(int run = i+1; (double)run <= interval; run++)
+  {
+    u = (double)run / interval;
+    if(u > 1.0)
+    {
+      ROS_WARN("goal-distance overshoot: u[%f], correct to 1.0 (100pct)", u);
+      u = 1.0;
+    }
+    glm::vec<3, double> p2 =  tinynurbs::curvePoint(crv_, u);
+    dist += std::hypot((p1.x-p2.x), (p1.y-p2.y));
+    p1 = p2;
+  }
+  return dist;
 }
 
 }
