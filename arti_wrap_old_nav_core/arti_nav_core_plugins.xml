@@ -7,6 +7,13 @@
     </description>
   </class>
 
+  <class name="arti_wrap_old_nav_core/BaseGlobalPlannerWrapper" type="arti_wrap_old_nav_core::BaseGlobalPlannerWrapper"
+         base_class_type="arti_nav_core::BaseGlobalPlanner">
+    <description>
+      Wrapper to use ROS global planners in the new nav core
+    </description>
+  </class>
+
   <!-- Also include the old name for backwards compatibility: -->
   <class name="arti_nav_core/BaseGlobalPlannerWrapper" type="arti_wrap_old_nav_core::BaseGlobalPlannerWrapper"
          base_class_type="arti_nav_core::BaseGlobalPlanner">
